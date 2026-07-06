@@ -1,0 +1,26 @@
+# electron-builder configuration (kept out of package.json so it survives even
+# if package.json is rewritten by tooling). Used by `npm run electron:build`
+# and by CI.
+appId: dev.nawalelk.dbinterface
+productName: DB Interface
+npmRebuild: false
+directories:
+  output: release
+  buildResources: build
+files:
+  - electron/**/*
+afterPack: scripts/after-pack.cjs
+mac:
+  target:
+    - dmg
+    - zip
+  identity: null
+  category: public.app-category.developer-tools
+win:
+  target:
+    - nsis
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Development

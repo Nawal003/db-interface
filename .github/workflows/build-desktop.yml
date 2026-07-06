@@ -1,0 +1,47 @@
+name: Build desktop app
+
+# Builds the Electron installers for macOS, Windows and Linux in clean CI
+# runners. Trigger manually (Actions tab → Run workflow) or by pushing a v* tag.
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build Next.js (standalone)
+        run: npm run build
+
+      - name: Prepare standalone (static + Electron-ABI better-sqlite3)
+        run: node scripts/prepare-standalone.mjs
+
+      - name: Package with electron-builder
+        run: npx --no-install electron-builder --publish never
+
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: dbinterface-${{ matrix.os }}
+          if-no-files-found: warn
+          path: |
+            release/*.dmg
+            release/*.zip
+            release/*.exe
+            release/*.AppImage
+            release/*.deb

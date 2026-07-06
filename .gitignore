@@ -17,6 +17,9 @@
 /.next/
 /out/
 
+# app data (SQLite db + imported file copies, created at runtime)
+/.data/
+
 # production
 /build
 
@@ -39,3 +42,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# electron-builder output
+/release/
