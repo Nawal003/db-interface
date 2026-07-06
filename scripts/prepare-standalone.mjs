@@ -25,13 +25,16 @@ if (existsSync(join(root, "public"))) {
 }
 
 // 2) Native binary for Electron's Node ABI (prebuilt, per current platform).
+//    SQLITE_TARGET_ARCH overrides the arch so CI can cross-build (e.g. fetch the
+//    x64 binary on an Apple-Silicon runner to package an Intel .dmg).
 const electronVersion = require("electron/package.json").version;
+const targetArch = process.env.SQLITE_TARGET_ARCH || process.arch;
 const bs3 = join(standalone, "node_modules", "better-sqlite3");
 const prebuildInstall = require.resolve("prebuild-install/bin.js");
 
 console.log(
   `Fetching better-sqlite3 prebuild for Electron ${electronVersion} ` +
-    `(${process.platform}-${process.arch})…`,
+    `(${process.platform}-${targetArch})…`,
 );
 execFileSync(
   process.execPath,
@@ -42,7 +45,7 @@ execFileSync(
     "--target",
     electronVersion,
     "--arch",
-    process.arch,
+    targetArch,
     "--platform",
     process.platform,
     "--tag-prefix",

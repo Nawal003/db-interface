@@ -13,7 +13,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
+        include:
+          - os: macos-latest      # Apple Silicon runner → arm64 .dmg
+            name: macos-arm64
+            eb: "--mac --arm64"
+            sqlite_arch: arm64
+          - os: macos-latest      # same runner, cross-build the Intel .dmg
+            name: macos-x64
+            eb: "--mac --x64"
+            sqlite_arch: x64
+          - os: windows-latest
+            name: windows
+            eb: ""
+          - os: ubuntu-latest
+            name: linux
+            eb: ""
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -30,14 +44,16 @@ jobs:
 
       - name: Prepare standalone (static + Electron-ABI better-sqlite3)
         run: node scripts/prepare-standalone.mjs
+        env:
+          SQLITE_TARGET_ARCH: ${{ matrix.sqlite_arch }}
 
       - name: Package with electron-builder
-        run: npx --no-install electron-builder --publish never
+        run: npx --no-install electron-builder ${{ matrix.eb }} --publish never
 
       - name: Upload installers
         uses: actions/upload-artifact@v4
         with:
-          name: dbinterface-${{ matrix.os }}
+          name: dbinterface-${{ matrix.name }}
           if-no-files-found: warn
           path: |
             release/*.dmg
