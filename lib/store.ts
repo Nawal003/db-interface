@@ -291,6 +291,10 @@ export async function importSource(sourcePath: string): Promise<Dataset[]> {
 export async function resyncDataset(id: string): Promise<Dataset> {
   const ds = getDataset(id);
   if (!ds) throw new Error("Jeu de données introuvable");
+  if (!ds.sourcePath)
+    throw new Error(
+      "Ce jeu de données est un résultat (fusion/dédoublonnage) — pas de source à resynchroniser.",
+    );
   const stat = fs.statSync(ds.sourcePath); // throws if source now missing
 
   let columns: Column[];
@@ -356,6 +360,218 @@ export function deleteDataset(id: string): void {
     }
   }
   db.prepare("DELETE FROM datasets WHERE id = ?").run(id);
+}
+
+// ---------------------------------------------------------------------------
+// Derived datasets: merge (union / join) and de-duplication. All done in pure
+// SQL (INSERT … SELECT), so they scale to large tables without loading rows
+// into JS. Results are format-agnostic (every source is already a table).
+// ---------------------------------------------------------------------------
+
+function insertDerivedDataset(
+  id: string,
+  name: string,
+  columns: Column[],
+  rowCount: number,
+): void {
+  const now = Date.now();
+  getDb()
+    .prepare(
+      `INSERT INTO datasets
+        (id, name, format, source_path, source_table, source_mtime_ms,
+         source_size, table_name, raw_copy_path, columns_json, row_count,
+         status, created_at, last_synced_at)
+       VALUES (?, ?, 'csv', '', NULL, 0, 0, ?, '', ?, ?, 'ok', ?, ?)`,
+    )
+    .run(id, name, id, JSON.stringify(columns), rowCount, now, now);
+}
+
+/** Create a derived table by running an INSERT…SELECT built by `buildInsert`. */
+function materializeDerived(
+  name: string,
+  columns: Column[],
+  buildInsert: (tableName: string, keys: string[]) => string,
+): Dataset {
+  const db = getDb();
+  const id = safeId();
+  const keys = columns.map((c) => c.key);
+  db.exec(`DROP TABLE IF EXISTS "${id}"`);
+  const defs = keys.map((k) => `${k} TEXT`).join(", ");
+  try {
+    db.exec(
+      `CREATE TABLE "${id}" (_rid INTEGER PRIMARY KEY AUTOINCREMENT${
+        defs ? ", " + defs : ""
+      })`,
+    );
+    db.exec(buildInsert(id, keys));
+    const { n } = db.prepare(`SELECT COUNT(*) AS n FROM "${id}"`).get() as {
+      n: number;
+    };
+    insertDerivedDataset(id, name, columns, n);
+    return getDataset(id)!;
+  } catch (e) {
+    db.exec(`DROP TABLE IF EXISTS "${id}"`);
+    throw e;
+  }
+}
+
+const normName = (s: string) => s.trim().toLowerCase();
+
+/** Stack datasets (rows appended), aligning columns by name (case-insensitive). */
+export function mergeUnion(datasetIds: string[], name?: string): Dataset {
+  const sets = datasetIds.map((id) => {
+    const ds = getDataset(id);
+    if (!ds) throw new Error("Jeu de données introuvable : " + id);
+    return ds;
+  });
+  if (sets.length < 2)
+    throw new Error("Sélectionnez au moins deux jeux de données à empiler");
+
+  const order: string[] = [];
+  const display = new Map<string, string>();
+  const typesByName = new Map<string, string[]>();
+  for (const ds of sets) {
+    for (const c of ds.columns) {
+      const k = normName(c.name);
+      if (!display.has(k)) {
+        display.set(k, c.name);
+        order.push(k);
+        typesByName.set(k, []);
+      }
+      typesByName.get(k)!.push(c.type);
+    }
+  }
+  if (order.length === 0) throw new Error("Aucune colonne à fusionner");
+
+  const columns: Column[] = order.map((k, i) => ({
+    name: display.get(k)!,
+    key: `c${i}`,
+    type: typesByName.get(k)!.every((t) => t === "number") ? "number" : "text",
+  }));
+
+  const buildInsert = (table: string, keys: string[]): string =>
+    sets
+      .map((ds) => {
+        const byName = new Map(ds.columns.map((c) => [normName(c.name), c.key]));
+        const exprs = order.map((k) => byName.get(k) ?? "NULL");
+        return `INSERT INTO "${table}" (${keys.join(", ")}) SELECT ${exprs.join(
+          ", ",
+        )} FROM "${ds.tableName}"`;
+      })
+      .join(";\n");
+
+  return materializeDerived(name?.trim() || "Fusion", columns, buildInsert);
+}
+
+/** Join two datasets on a key column each (inner or left join). */
+export function mergeJoin(
+  leftId: string,
+  rightId: string,
+  leftKey: string,
+  rightKey: string,
+  joinType: "inner" | "left",
+  name?: string,
+): Dataset {
+  const left = getDataset(leftId);
+  const right = getDataset(rightId);
+  if (!left || !right) throw new Error("Jeu de données introuvable");
+  if (!left.columns.some((c) => c.key === leftKey))
+    throw new Error("Colonne clé de gauche invalide");
+  if (!right.columns.some((c) => c.key === rightKey))
+    throw new Error("Colonne clé de droite invalide");
+
+  const used = new Set<string>();
+  const columns: Column[] = [];
+  const selectExprs: string[] = [];
+  for (const c of left.columns) {
+    used.add(normName(c.name));
+    columns.push({ name: c.name, key: `c${columns.length}`, type: c.type });
+    selectExprs.push(`L.${c.key}`);
+  }
+  for (const c of right.columns) {
+    let display = c.name;
+    let n = 2;
+    while (used.has(normName(display))) display = `${c.name}_${n++}`;
+    used.add(normName(display));
+    columns.push({ name: display, key: `c${columns.length}`, type: c.type });
+    selectExprs.push(`R.${c.key}`);
+  }
+
+  const join = joinType === "left" ? "LEFT JOIN" : "JOIN";
+  const buildInsert = (table: string, keys: string[]): string =>
+    `INSERT INTO "${table}" (${keys.join(", ")}) SELECT ${selectExprs.join(
+      ", ",
+    )} FROM "${left.tableName}" L ${join} "${right.tableName}" R ` +
+    `ON L.${leftKey} = R.${rightKey}`;
+
+  return materializeDerived(name?.trim() || "Jointure", columns, buildInsert);
+}
+
+/** De-duplicate a dataset, keeping the first row per distinct key columns. */
+export function dedupeDataset(
+  datasetId: string,
+  keyColumns?: string[],
+  name?: string,
+): Dataset {
+  const ds = getDataset(datasetId);
+  if (!ds) throw new Error("Jeu de données introuvable");
+  const allKeys = ds.columns.map((c) => c.key);
+  const groupKeys =
+    keyColumns && keyColumns.length > 0
+      ? keyColumns.filter((k) => allKeys.includes(k))
+      : allKeys;
+  if (groupKeys.length === 0)
+    throw new Error("Aucune colonne pour le dédoublonnage");
+
+  const columns: Column[] = ds.columns.map((c, i) => ({
+    name: c.name,
+    key: `c${i}`,
+    type: c.type,
+  }));
+
+  const buildInsert = (table: string, keys: string[]): string =>
+    `INSERT INTO "${table}" (${keys.join(", ")}) SELECT ${allKeys.join(
+      ", ",
+    )} FROM "${ds.tableName}" WHERE _rid IN ` +
+    `(SELECT MIN(_rid) FROM "${ds.tableName}" GROUP BY ${groupKeys.join(", ")})`;
+
+  return materializeDerived(
+    name?.trim() || `${ds.name} (dédoublonné)`,
+    columns,
+    buildInsert,
+  );
+}
+
+export type MergeRequest =
+  | { op: "union"; datasetIds: string[]; name?: string }
+  | {
+      op: "join";
+      leftId: string;
+      rightId: string;
+      leftKey: string;
+      rightKey: string;
+      joinType: "inner" | "left";
+      name?: string;
+    }
+  | { op: "dedupe"; datasetId: string; keys?: string[]; name?: string };
+
+/** Dispatch a merge/dedupe request, returning the new derived dataset. */
+export function runMerge(req: MergeRequest): Dataset {
+  switch (req.op) {
+    case "union":
+      return mergeUnion(req.datasetIds, req.name);
+    case "join":
+      return mergeJoin(
+        req.leftId,
+        req.rightId,
+        req.leftKey,
+        req.rightKey,
+        req.joinType,
+        req.name,
+      );
+    case "dedupe":
+      return dedupeDataset(req.datasetId, req.keys, req.name);
+  }
 }
 
 export interface QueryOptions {

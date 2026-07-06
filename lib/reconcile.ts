@@ -14,6 +14,12 @@ function setStatus(id: string, status: DatasetStatus): void {
  * - otherwise -> "ok"
  */
 export function reconcileOne(ds: Dataset): DatasetStatus | "deleted" {
+  // Derived datasets (merge/dedupe results) have no source file — never reconcile.
+  if (!ds.sourcePath) {
+    if (ds.status !== "ok") setStatus(ds.id, "ok");
+    return "ok";
+  }
+
   let stat: fs.Stats;
   try {
     stat = fs.statSync(ds.sourcePath);

@@ -1,6 +1,6 @@
 "use client";
 
-import { Database, Plus } from "lucide-react";
+import { Database, GitMerge, Plus } from "lucide-react";
 import type { Dataset } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +20,7 @@ interface Props {
   selectedId: string | null;
   onSelect: (id: string) => void;
   onImportClick: () => void;
+  onMergeClick: () => void;
   onRenamed: () => void;
   onDeleted: (ids: string[]) => void;
 }
@@ -64,6 +65,7 @@ export function AppSidebar({
   selectedId,
   onSelect,
   onImportClick,
+  onMergeClick,
   onRenamed,
   onDeleted,
 }: Props) {
@@ -87,6 +89,14 @@ export function AppSidebar({
             className="h-10 w-full gap-2 border-secondary/40 bg-secondary/10 font-medium text-secondary hover:bg-secondary/15 hover:text-secondary dark:border-secondary/40 dark:bg-secondary/10 dark:text-secondary dark:hover:bg-secondary/15"
           >
             <Plus /> Importer un fichier
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={onMergeClick}
+            disabled={datasets.length === 0}
+            className="mt-1.5 h-9 w-full gap-2 text-muted-foreground hover:text-foreground"
+          >
+            <GitMerge className="size-4" /> Fusionner / nettoyer
           </Button>
         </div>
       </SidebarHeader>

@@ -1,5 +1,9 @@
 import type { NextRequest } from "next/server";
-import { buildExport, type ExportFormat } from "@/lib/export";
+import {
+  buildExportStream,
+  buildXlsxExport,
+  type ExportFormat,
+} from "@/lib/export";
 import { getDataset } from "@/lib/store";
 
 export const runtime = "nodejs";
@@ -30,13 +34,20 @@ export async function GET(
     ? keysParam.split(",").map((k) => k.trim()).filter(Boolean)
     : ds.columns.map((c) => c.key);
 
+  const opts = { keys, format, q: sp.get("q") ?? undefined };
   try {
-    const { filename, contentType, body } = buildExport(ds, {
-      keys,
-      format,
-      q: sp.get("q") ?? undefined,
-    });
-    return new Response(body as BodyInit, {
+    // XLSX is built in memory (moderate sizes); CSV/JSON stream row-by-row.
+    if (format === "xlsx") {
+      const { filename, contentType, body } = buildXlsxExport(ds, opts);
+      return new Response(body as BodyInit, {
+        headers: {
+          "Content-Type": contentType,
+          "Content-Disposition": `attachment; filename="${filename}"`,
+        },
+      });
+    }
+    const { filename, contentType, stream } = buildExportStream(ds, opts);
+    return new Response(stream, {
       headers: {
         "Content-Type": contentType,
         "Content-Disposition": `attachment; filename="${filename}"`,

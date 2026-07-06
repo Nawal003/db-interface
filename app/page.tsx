@@ -15,6 +15,7 @@ import {
 import { AppSidebar } from "@/components/AppSidebar";
 import DatasetView from "@/components/DatasetView";
 import FileBrowser from "@/components/FileBrowser";
+import MergeDialog from "@/components/MergeDialog";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 interface DatasetsResponse {
@@ -25,6 +26,7 @@ export default function Home() {
   const { data, mutate } = useSWR<DatasetsResponse>("/api/datasets", fetcher);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
+  const [showMerge, setShowMerge] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [update, setUpdate] = useState<UpdateInfo | null>(null);
 
@@ -109,6 +111,7 @@ export default function Home() {
         selectedId={selected?.id ?? null}
         onSelect={setSelectedId}
         onImportClick={handleImportClick}
+        onMergeClick={() => setShowMerge(true)}
         onRenamed={() => mutate()}
         onDeleted={handleDeleted}
       />
@@ -183,6 +186,13 @@ export default function Home() {
         open={showImport}
         onOpenChange={setShowImport}
         onImported={handleImported}
+      />
+
+      <MergeDialog
+        open={showMerge}
+        onOpenChange={setShowMerge}
+        datasets={datasets}
+        onDone={handleImported}
       />
     </SidebarProvider>
   );
