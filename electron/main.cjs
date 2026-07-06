@@ -6,6 +6,7 @@ const path = require("node:path");
 const fs = require("node:fs");
 const os = require("node:os");
 const http = require("node:http");
+const https = require("node:https");
 const { spawn } = require("node:child_process");
 
 // Boot log to a stable path, written before any app.getPath() call, so we can
@@ -47,6 +48,69 @@ ipcMain.handle("dialog:pickImportFile", async (event) => {
     ],
   });
   return res.canceled || !res.filePaths.length ? null : res.filePaths[0];
+});
+
+// Lightweight update check: compare the running version to the latest GitHub
+// release and let the renderer show a "Mettre à jour" banner (no auto-install —
+// that needs code signing on macOS). The button opens the download page.
+const DOWNLOAD_PAGE = "https://nawal003.github.io/db-interface/";
+const RELEASES_API =
+  "https://api.github.com/repos/Nawal003/db-interface/releases/latest";
+
+function fetchLatestVersion() {
+  return new Promise((resolve, reject) => {
+    const req = https.get(
+      RELEASES_API,
+      { headers: { "User-Agent": "DB-Interface", Accept: "application/vnd.github+json" } },
+      (res) => {
+        if (res.statusCode !== 200) {
+          res.resume();
+          return reject(new Error("HTTP " + res.statusCode));
+        }
+        let data = "";
+        res.on("data", (c) => (data += c));
+        res.on("end", () => {
+          try {
+            resolve(String(JSON.parse(data).tag_name || "").replace(/^v/, ""));
+          } catch (e) {
+            reject(e);
+          }
+        });
+      },
+    );
+    req.on("error", reject);
+    req.setTimeout(8000, () => req.destroy(new Error("timeout")));
+  });
+}
+
+function isNewer(latest, current) {
+  const a = String(latest).split(".").map(Number);
+  const b = String(current).split(".").map(Number);
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const x = a[i] || 0;
+    const y = b[i] || 0;
+    if (x !== y) return x > y;
+  }
+  return false;
+}
+
+ipcMain.handle("update:check", async () => {
+  const current = app.getVersion();
+  try {
+    const latest = await fetchLatestVersion();
+    return {
+      current,
+      latest,
+      hasUpdate: !!latest && isNewer(latest, current),
+      url: DOWNLOAD_PAGE,
+    };
+  } catch {
+    return { current, latest: null, hasUpdate: false, url: DOWNLOAD_PAGE };
+  }
+});
+
+ipcMain.handle("shell:openExternal", (_event, url) => {
+  if (typeof url === "string" && /^https:\/\//.test(url)) shell.openExternal(url);
 });
 
 function waitForServer(url, timeoutMs = 30000) {

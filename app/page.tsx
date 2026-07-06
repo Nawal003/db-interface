@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import useSWR from "swr";
 import { Database } from "lucide-react";
 import type { Dataset } from "@/lib/types";
 import { fetcher } from "@/lib/fetcher";
-import { getDesktop } from "@/lib/desktop";
+import { getDesktop, type UpdateInfo } from "@/lib/desktop";
+import { Button } from "@/components/ui/button";
 import {
   SidebarInset,
   SidebarProvider,
@@ -25,6 +26,20 @@ export default function Home() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  const [update, setUpdate] = useState<UpdateInfo | null>(null);
+
+  // On launch (desktop only), check GitHub for a newer release.
+  useEffect(() => {
+    const desktop = getDesktop();
+    if (!desktop) return;
+    let active = true;
+    desktop.checkForUpdate().then((info) => {
+      if (active && info.hasUpdate) setUpdate(info);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const datasets = data?.datasets ?? [];
   // Derive the active dataset during render: honor the explicit choice while it
@@ -97,6 +112,26 @@ export default function Home() {
             <ThemeToggle />
           </div>
         </header>
+
+        {update && (
+          <div className="flex shrink-0 items-center justify-between gap-3 border-b bg-secondary/10 px-4 py-2 text-xs">
+            <span className="truncate">
+              Nouvelle version <b>v{update.latest}</b> disponible — vous avez la
+              v{update.current}.
+            </span>
+            <div className="flex shrink-0 items-center gap-2">
+              <Button size="sm" onClick={() => getDesktop()?.openExternal(update.url)}>
+                Mettre à jour
+              </Button>
+              <button
+                onClick={() => setUpdate(null)}
+                className="cursor-pointer text-muted-foreground underline"
+              >
+                Plus tard
+              </button>
+            </div>
+          </div>
+        )}
 
         {importError && (
           <div className="flex shrink-0 items-center justify-between gap-3 border-b bg-destructive/10 px-4 py-2 text-xs text-destructive">
