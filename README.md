@@ -87,7 +87,7 @@ Vous pouvez aussi **renommer** ou **supprimer** un jeu de données depuis le men
 
 ### Version desktop (recommandé)
 Téléchargez l'installeur de votre OS depuis la page
-[**Releases**](https://github.com/Nawal003/de-interface/releases) (ou construisez-le,
+[**Releases**](https://github.com/Nawal003/db-interface/releases) (ou construisez-le,
 voir ci-dessous), puis lancez **DB Interface**.
 
 > Sur macOS, l'app n'étant pas signée, au premier lancement faites **clic droit → Ouvrir**
