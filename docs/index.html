@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DB Interface — Télécharger</title>
+  <meta name="description" content="Téléchargez DB Interface pour macOS, Windows ou Linux. Ouvrez, explorez et exportez vos fichiers de données locaux, hors ligne." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗂️</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --bg2: #111119;
+      --card: rgba(255,255,255,0.035);
+      --card-border: rgba(255,255,255,0.09);
+      --text: #f4f4f6;
+      --muted: #9a9aa6;
+      --muted2: #6d6d78;
+      --accent: #f97316;
+      --accent2: #fb923c;
+      --accent-glow: rgba(249,115,22,0.45);
+      --btn-face: rgba(255,255,255,0.05);
+      --btn-border: rgba(255,255,255,0.12);
+      --btn-hover: rgba(255,255,255,0.09);
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f5f5f7;
+        --bg2: #ffffff;
+        --card: rgba(255,255,255,0.75);
+        --card-border: rgba(0,0,0,0.08);
+        --text: #16161a;
+        --muted: #5c5c66;
+        --muted2: #8a8a94;
+        --btn-face: rgba(0,0,0,0.03);
+        --btn-border: rgba(0,0,0,0.10);
+        --btn-hover: rgba(0,0,0,0.06);
+      }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      background-image:
+        radial-gradient(1100px 600px at 50% -10%, var(--accent-glow), transparent 55%),
+        radial-gradient(900px 500px at 100% 110%, rgba(99,102,241,0.18), transparent 60%),
+        linear-gradient(180deg, var(--bg2), var(--bg));
+      background-attachment: fixed;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 20px;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrap {
+      width: 100%;
+      max-width: 560px;
+      text-align: center;
+      animation: rise .6s cubic-bezier(.2,.7,.2,1) both;
+    }
+    @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+    .logo {
+      width: 76px; height: 76px;
+      margin: 0 auto 22px;
+      border-radius: 20px;
+      display: grid; place-items: center;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      box-shadow: 0 12px 40px -8px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,.25);
+    }
+    .logo svg { width: 38px; height: 38px; fill: #fff; }
+
+    h1 { font-size: 2.35rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1.05; }
+    .tag { margin-top: 12px; color: var(--muted); font-size: 1.02rem; line-height: 1.5; }
+
+    .version {
+      display: inline-flex; align-items: center; gap: 8px;
+      margin-top: 20px; padding: 6px 13px;
+      font-family: 'IBM Plex Mono', ui-monospace, monospace;
+      font-size: .8rem; color: var(--muted);
+      background: var(--btn-face);
+      border: 1px solid var(--btn-border);
+      border-radius: 999px;
+    }
+    .version .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 0 var(--accent-glow); animation: pulse 2.4s infinite; }
+    @keyframes pulse { 0% { box-shadow: 0 0 0 0 var(--accent-glow); } 70% { box-shadow: 0 0 0 7px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+
+    .card {
+      margin-top: 30px; padding: 28px 24px 24px;
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 22px;
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      box-shadow: 0 30px 80px -30px rgba(0,0,0,.6);
+    }
+
+    /* Primary download button */
+    .primary {
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      width: 100%; padding: 17px 22px;
+      font-size: 1.05rem; font-weight: 650; color: #fff;
+      text-decoration: none; cursor: pointer;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none; border-radius: 15px;
+      box-shadow: 0 14px 34px -10px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,.28);
+      transition: transform .16s ease, box-shadow .16s ease, filter .16s ease;
+    }
+    .primary:hover { transform: translateY(-2px); box-shadow: 0 20px 46px -12px var(--accent-glow); filter: brightness(1.04); }
+    .primary:active { transform: translateY(0); }
+    .primary svg { width: 22px; height: 22px; fill: #fff; }
+    .primary .sub { display:block; font-size:.72rem; font-weight:500; opacity:.85; margin-top:2px; }
+    .primary .lbl { display:flex; flex-direction:column; align-items:flex-start; line-height:1.15; }
+
+    /* Secondary OS buttons */
+    .others { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+    .others.solo { grid-template-columns: 1fr; }
+    .osbtn {
+      display: flex; align-items: center; justify-content: center; gap: 9px;
+      padding: 13px 14px;
+      font-size: .9rem; font-weight: 550; color: var(--text);
+      text-decoration: none; cursor: pointer;
+      background: var(--btn-face);
+      border: 1px solid var(--btn-border);
+      border-radius: 13px;
+      transition: background .15s ease, border-color .15s ease, transform .15s ease;
+    }
+    .osbtn:hover { background: var(--btn-hover); transform: translateY(-1px); }
+    .osbtn svg { width: 18px; height: 18px; fill: currentColor; opacity: .9; }
+    .osbtn .meta { color: var(--muted2); font-weight: 500; font-size: .78rem; }
+
+    .note { margin-top: 16px; font-size: .78rem; color: var(--muted2); line-height: 1.5; }
+    .note code { font-family: 'IBM Plex Mono', monospace; font-size: .74rem; background: var(--btn-face); padding: 2px 6px; border-radius: 6px; }
+
+    .foot { margin-top: 26px; font-size: .82rem; color: var(--muted2); }
+    .foot a { color: var(--muted); text-decoration: none; border-bottom: 1px solid var(--btn-border); padding-bottom: 1px; }
+    .foot a:hover { color: var(--text); }
+
+    /* States */
+    .spinner { width: 30px; height: 30px; margin: 8px auto; border: 3px solid var(--btn-border); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .state { color: var(--muted); font-size: .95rem; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <div class="logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M4 5h16a1 1 0 0 1 1 1v3H3V6a1 1 0 0 1 1-1Zm-1 6h6v3H3v-3Zm8 0h10v3H11v-3ZM3 16h6v3H4a1 1 0 0 1-1-1v-2Zm8 0h10v2a1 1 0 0 1-1 1H11v-3Z"/></svg>
+    </div>
+    <h1>DB Interface</h1>
+    <p class="tag">Ouvrez, explorez et exportez vos fichiers de données locaux.<br />CSV · JSON · Excel · SQLite — 100 % hors ligne.</p>
+
+    <div class="version" id="version"><span class="dot"></span><span id="version-text">Chargement…</span></div>
+
+    <section class="card" id="card">
+      <div id="loading">
+        <div class="spinner"></div>
+        <p class="state">Recherche de la dernière version…</p>
+      </div>
+      <div id="content" class="hidden">
+        <a class="primary" id="primary" href="#" target="_blank" rel="noopener"></a>
+        <div class="others" id="others"></div>
+        <p class="note" id="note"></p>
+      </div>
+      <div id="empty" class="hidden">
+        <p class="state" id="empty-text">Aucune version publiée pour l'instant.</p>
+      </div>
+    </section>
+
+    <p class="foot">
+      <a href="https://github.com/Nawal003/db-interface" target="_blank" rel="noopener">Code source sur GitHub</a>
+      &nbsp;·&nbsp;
+      <a href="https://github.com/Nawal003/db-interface/releases" target="_blank" rel="noopener">Toutes les versions</a>
+    </p>
+  </main>
+
+  <script>
+    const REPO = 'Nawal003/db-interface';
+    const API = `https://api.github.com/repos/${REPO}/releases/latest`;
+
+    const ICONS = {
+      mac: '<svg viewBox="0 0 384 512"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>',
+      win: '<svg viewBox="0 0 448 512"><path d="M0 93.7l183.6-25.3v177.4H0V93.7zm0 324.6l183.6 25.3V268.4H0v149.9zm203.8 28L448 480V268.4H203.8v177.9zm0-380.6v180.1H448V32L203.8 65.7z"/></svg>',
+      linux: '<svg viewBox="0 0 448 512"><path d="M220.8 123.3c1 .5 1.8 1.7 3 1.7 1.1 0 2.8-.4 2.9-1.5 .2-1.4-1.9-2.3-3.2-2.9-1.7-.7-3.9-1-5.5-.1-.4.2-.8.7-.6 1.1.3 1.3 2.3 1 3.4 1.7zm-21.9 1.7c1.2 0 2-1.2 3-1.7 1.1-.7 3.1-.4 3.5-1.6 .2-.4-.2-.9-.6-1.1-1.6-.9-3.8-.6-5.5.1-1.3.6-3.4 1.5-3.2 2.9 .1 1 1.8 1.5 2.8 1.4zM420 403.8c-3.6-4-5.3-11.6-7.2-19.7-1.8-8.1-3.9-16.8-10.5-22.4-1.3-1.1-2.6-2.1-4-2.9-1.3-.8-2.7-1.5-4.1-2 9.2-27.3 5.6-54.5-3.7-79.1-11.4-30.1-31.3-56.4-46.5-74.4-17.1-21.5-33.7-41.9-33.4-72C311.1 85.4 315.7.1 234.8 0 132.4-.2 158.8 103.6 158 132c-1.6 30.5-27.5 82.6-42.5 100.6C87.5 264.3 82.5 306.9 78 350.5c-2.3 22.7-5.3 41.1-12.3 53.4-4.9 8.6-11.7 15.5-19.5 20.2-8.4 5-18.2 7.9-28.2 8.4-.8.4-1.6.9-2.4 1.4-2.6 1.7-4.3 4.6-4.3 7.8 0 3.6 1.6 7.3 4.3 9.7 5.9 5.3 15.5 6.7 23.4 8.1 6.3 1.1 11.9 2.1 15.4 4.3 3.5 2.2 5.1 5.1 5.1 9.1 0 4.5-2 7.1-4.6 8.9l1.4.7c15.1 7.4 33.4 6.3 51.1 4.1 4.4-.5 8.9-1.1 13.2-1.5 11-1 21.4-1.6 30.3 1.9 9.9 3.9 18.4 12.5 25.5 24.1 1.3 2.1 2.5 4.3 3.7 6.4 4.4 8.2 8.4 15.7 15.5 20.1 8 5 19.6 6.5 38.3 3.8 15.9-2.3 27.3-8.6 34.4-18.2 6.5-8.8 9.3-19.8 10.4-31 .9-9.3 1.6-18.4 3.4-26.6 1.8-8.2 5-15.2 10.8-19.6z"/></svg>',
+    };
+
+    // Ordered categories. `os` groups them for OS detection.
+    const CATS = [
+      { key: 'mac',      os: 'mac',   label: 'macOS',            hint: '.dmg',      icon: 'mac',   test: n => /\.dmg$/i.test(n) },
+      { key: 'win',      os: 'win',   label: 'Windows',          hint: '.exe',      icon: 'win',   test: n => /\.exe$/i.test(n) },
+      { key: 'appimage', os: 'linux', label: 'Linux · AppImage', hint: '.AppImage', icon: 'linux', test: n => /\.appimage$/i.test(n) },
+      { key: 'deb',      os: 'linux', label: 'Linux · .deb',     hint: 'Debian/Ubuntu', icon: 'linux', test: n => /\.deb$/i.test(n) },
+    ];
+
+    function detectOS() {
+      const p = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '';
+      const ua = navigator.userAgent || '';
+      if (/mac/i.test(p) || /Mac OS X/i.test(ua)) return 'mac';
+      if (/win/i.test(p) || /Windows/i.test(ua)) return 'win';
+      if (/linux/i.test(p) || /Linux/i.test(ua)) return 'linux';
+      return null;
+    }
+
+    function fmtSize(bytes) {
+      if (!bytes) return '';
+      return (bytes / 1048576).toFixed(1) + ' Mo';
+    }
+
+    function show(id) { document.getElementById(id).classList.remove('hidden'); }
+    function hide(id) { document.getElementById(id).classList.add('hidden'); }
+
+    async function main() {
+      try {
+        const res = await fetch(API, { headers: { Accept: 'application/vnd.github+json' } });
+        if (res.status === 404) return renderEmpty("La première version arrive bientôt — le build est en cours.");
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        render(await res.json());
+      } catch (e) {
+        renderEmpty("Impossible de contacter GitHub pour le moment.");
+      }
+    }
+
+    function render(rel) {
+      // Match each category to an asset by extension.
+      const assets = rel.assets || [];
+      const found = CATS.map(c => ({ cat: c, asset: assets.find(a => c.test(a.name)) })).filter(x => x.asset);
+
+      document.getElementById('version-text').textContent =
+        rel.tag_name + (rel.published_at ? ' · ' + new Date(rel.published_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '');
+
+      if (!found.length) return renderEmpty("Version publiée, mais aucun installeur disponible.");
+
+      const osNames = { mac: 'macOS', win: 'Windows', linux: 'Linux' };
+      const myOS = detectOS();
+
+      // Primary = first asset matching the visitor's OS (AppImage preferred for Linux), else the first available.
+      let primary = found.find(x => x.cat.os === myOS);
+      if (!primary) primary = found[0];
+
+      const pBtn = document.getElementById('primary');
+      pBtn.href = primary.asset.browser_download_url;
+      pBtn.innerHTML = ICONS[primary.cat.icon] +
+        `<span class="lbl"><span>Télécharger pour ${osNames[primary.cat.os]}</span>` +
+        `<span class="sub">${primary.cat.label} · ${fmtSize(primary.asset.size)}</span></span>`;
+
+      // Others = everything except the primary asset.
+      const others = found.filter(x => x !== primary);
+      const box = document.getElementById('others');
+      box.classList.toggle('solo', others.length === 1);
+      box.innerHTML = others.map(x =>
+        `<a class="osbtn" href="${x.asset.browser_download_url}">${ICONS[x.cat.icon]}` +
+        `<span>${x.cat.label}</span><span class="meta">${fmtSize(x.asset.size)}</span></a>`
+      ).join('');
+
+      const note = document.getElementById('note');
+      if (primary.cat.os === 'mac' || found.some(x => x.cat.os === 'mac')) {
+        note.innerHTML = "Sur macOS (app non signée) : au 1ᵉʳ lancement, <b>clic droit → Ouvrir</b>.";
+      } else {
+        note.textContent = "";
+      }
+
+      hide('loading'); show('content');
+    }
+
+    function renderEmpty(msg) {
+      document.getElementById('version-text').textContent = 'à venir';
+      document.getElementById('empty-text').innerHTML =
+        msg + '<br><br><a class="osbtn" style="display:inline-flex" href="https://github.com/' + REPO + '/releases">Voir la page des versions →</a>';
+      hide('loading'); show('empty');
+    }
+
+    main();
+  </script>
+</body>
+</html>
