@@ -24,3 +24,4 @@ linux:
     - AppImage
     - deb
   category: Development
+  maintainer: nawalelk <nawal.dev64@gmail.com>

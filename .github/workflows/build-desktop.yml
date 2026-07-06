@@ -45,3 +45,24 @@ jobs:
             release/*.exe
             release/*.AppImage
             release/*.deb
+
+  # When triggered by a v* tag, gather the three OS builds and attach the
+  # installers to the corresponding GitHub Release (public download links).
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all installers
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Publish to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/**/*
+          fail_on_unmatched_files: false
+          generate_release_notes: true
