@@ -1,7 +1,7 @@
 // Electron main process. Wraps the local Next.js server in a native window.
 // - dev  : loads the running `next dev` server (localhost:3000)
 // - prod : spawns the bundled Next standalone server and loads it
-const { app, BrowserWindow, shell } = require("electron");
+const { app, BrowserWindow, shell, dialog, ipcMain } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
 const os = require("node:os");
@@ -28,6 +28,26 @@ const PROD_PORT = 34517;
 const PROD_URL = `http://127.0.0.1:${PROD_PORT}`;
 
 let serverProc = null;
+
+// Native "Open file" dialog — shows the real OS folder tree and lets the OS
+// grant read access to the picked file (avoids the in-app browser hitting
+// filesystem permissions, e.g. macOS Desktop/Documents/Downloads protection).
+const IMPORT_EXTENSIONS = [
+  "csv", "tsv", "json", "xlsx", "txt", "log", "md",
+  "db", "sqlite", "sqlite3", "sql",
+];
+ipcMain.handle("dialog:pickImportFile", async (event) => {
+  const parent = BrowserWindow.fromWebContents(event.sender);
+  const res = await dialog.showOpenDialog(parent, {
+    title: "Importer un fichier de données",
+    properties: ["openFile"],
+    filters: [
+      { name: "Données (CSV, JSON, Excel, SQLite, SQL…)", extensions: IMPORT_EXTENSIONS },
+      { name: "Tous les fichiers", extensions: ["*"] },
+    ],
+  });
+  return res.canceled || !res.filePaths.length ? null : res.filePaths[0];
+});
 
 function waitForServer(url, timeoutMs = 30000) {
   const start = Date.now();
@@ -85,7 +105,11 @@ async function createWindow(userData) {
     minHeight: 600,
     title: "DB Interface",
     backgroundColor: "#0b1220",
-    webPreferences: { contextIsolation: true, nodeIntegration: false },
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      preload: path.join(__dirname, "preload.cjs"),
+    },
   });
   win.loadURL(url);
   blog("window created");

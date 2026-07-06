@@ -5,6 +5,7 @@ import useSWR from "swr";
 import { Database } from "lucide-react";
 import type { Dataset } from "@/lib/types";
 import { fetcher } from "@/lib/fetcher";
+import { getDesktop } from "@/lib/desktop";
 import {
   SidebarInset,
   SidebarProvider,
@@ -23,6 +24,7 @@ export default function Home() {
   const { data, mutate } = useSWR<DatasetsResponse>("/api/datasets", fetcher);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
 
   const datasets = data?.datasets ?? [];
   // Derive the active dataset during render: honor the explicit choice while it
@@ -47,6 +49,31 @@ export default function Home() {
     mutate();
   }
 
+  // In Electron: open the native OS file picker (real folder tree + correct
+  // permissions). In a plain browser: fall back to the in-app file browser.
+  async function handleImportClick() {
+    const desktop = getDesktop();
+    if (!desktop) {
+      setShowImport(true);
+      return;
+    }
+    setImportError(null);
+    const filePath = await desktop.pickImportFile();
+    if (!filePath) return;
+    try {
+      const res = await fetch("/api/datasets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: filePath }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error ?? "Échec de l’import");
+      handleImported(body.dataset as Dataset);
+    } catch (e) {
+      setImportError((e as Error).message);
+    }
+  }
+
   function handleDeleted(ids: string[]) {
     setSelectedId((cur) => (cur && ids.includes(cur) ? null : cur));
     mutate();
@@ -58,7 +85,7 @@ export default function Home() {
         datasets={datasets}
         selectedId={selected?.id ?? null}
         onSelect={setSelectedId}
-        onImportClick={() => setShowImport(true)}
+        onImportClick={handleImportClick}
         onRenamed={() => mutate()}
         onDeleted={handleDeleted}
       />
@@ -70,6 +97,18 @@ export default function Home() {
             <ThemeToggle />
           </div>
         </header>
+
+        {importError && (
+          <div className="flex shrink-0 items-center justify-between gap-3 border-b bg-destructive/10 px-4 py-2 text-xs text-destructive">
+            <span className="truncate">Échec de l’import : {importError}</span>
+            <button
+              onClick={() => setImportError(null)}
+              className="shrink-0 cursor-pointer font-medium underline"
+            >
+              Fermer
+            </button>
+          </div>
+        )}
 
         <div className="flex min-h-0 flex-1 flex-col">
           {selected ? (
