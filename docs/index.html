@@ -145,6 +145,22 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     .state { color: var(--muted); font-size: .95rem; }
     .hidden { display: none !important; }
+
+    /* macOS first-open guide */
+    .macguide { margin-top: 16px; text-align: left; border: 1px solid var(--btn-border); border-radius: 12px; background: var(--btn-face); overflow: hidden; }
+    .macguide > summary { cursor: pointer; list-style: none; padding: 12px 14px; font-size: .85rem; font-weight: 600; color: var(--text); }
+    .macguide > summary::-webkit-details-marker { display: none; }
+    .macguide > summary::before { content: "▸"; margin-right: 8px; color: var(--muted); }
+    .macguide[open] > summary::before { content: "▾"; }
+    .macguide-body { padding: 0 14px 14px; font-size: .8rem; color: var(--muted); line-height: 1.55; }
+    .macguide-body b { color: var(--text); }
+    .macguide-body p { margin-top: 10px; }
+    .macguide-body ol { margin: 6px 0 0 18px; }
+    .macguide-body li { margin-top: 4px; }
+    .cmd { display: flex; align-items: stretch; gap: 8px; margin-top: 8px; }
+    .cmd code { flex: 1; min-width: 0; font-family: 'IBM Plex Mono', monospace; font-size: .72rem; color: var(--text); background: var(--bg); border: 1px solid var(--btn-border); border-radius: 8px; padding: 8px 10px; overflow-x: auto; white-space: nowrap; }
+    .cmd button { flex-shrink: 0; cursor: pointer; font-size: .75rem; font-weight: 600; color: #fff; background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; border-radius: 8px; padding: 0 12px; }
+    .small { font-size: .74rem; color: var(--muted2); }
   </style>
 </head>
 <body>
@@ -166,6 +182,24 @@
         <a class="primary" id="primary" href="#" target="_blank" rel="noopener"></a>
         <div class="others" id="others"></div>
         <p class="note" id="note"></p>
+        <details class="macguide hidden" id="macguide">
+          <summary>🍎 Première ouverture sur Mac (app non signée)</summary>
+          <div class="macguide-body">
+            <p>macOS affiche une alerte au 1ᵉʳ lancement car l'app n'est pas signée (c'est sans danger). Deux façons de l'ouvrir :</p>
+            <p><b>Option A — Terminal</b> (le plus rapide) :</p>
+            <div class="cmd">
+              <code id="xattr-cmd">xattr -dr com.apple.quarantine "/Applications/DB Interface.app"</code>
+              <button type="button" id="copy-cmd">Copier</button>
+            </div>
+            <p class="small">Colle-la dans Terminal, puis lance l'app normalement.</p>
+            <p><b>Option B — sans Terminal</b> :</p>
+            <ol>
+              <li>Double-clique l'app → sur l'alerte, clique <b>Terminé</b>.</li>
+              <li>Ouvre <b>Réglages Système → Confidentialité et sécurité</b>.</li>
+              <li>Section <b>Sécurité</b> → <b>Ouvrir quand même</b> → confirme.</li>
+            </ol>
+          </div>
+        </details>
       </div>
       <div id="empty" class="hidden">
         <p class="state" id="empty-text">Aucune version publiée pour l'instant.</p>
@@ -276,11 +310,17 @@
         `<span>${x.cat.label}</span><span class="meta">${fmtSize(x.asset.size)}</span></a>`
       ).join('');
 
+      const isMac = detectOS() === 'mac' || found.some(x => x.cat.os === 'mac');
       const note = document.getElementById('note');
-      if (primary.cat.os === 'mac' || found.some(x => x.cat.os === 'mac')) {
-        note.innerHTML = "macOS (app non signée) : au 1ᵉʳ lancement, <b>clic droit → Ouvrir</b>.<br>Mac d'avant 2020 = <b>Intel</b>, sinon <b>Apple Silicon</b>.";
+      note.innerHTML = isMac ? "Mac d'avant 2020 = <b>Intel</b>, sinon <b>Apple Silicon</b>." : "";
+
+      // Show the "first open on Mac" guide (unsigned app) to Mac visitors.
+      const guide = document.getElementById('macguide');
+      if (detectOS() === 'mac') {
+        guide.classList.remove('hidden');
+        guide.open = true;
       } else {
-        note.textContent = "";
+        guide.classList.add('hidden');
       }
 
       hide('loading'); show('content');
@@ -292,6 +332,28 @@
         msg + '<br><br><a class="osbtn" style="display:inline-flex" href="https://github.com/' + REPO + '/releases">Voir la page des versions →</a>';
       hide('loading'); show('empty');
     }
+
+    // Copy the un-quarantine command to the clipboard.
+    (function () {
+      const btn = document.getElementById('copy-cmd');
+      const cmd = document.getElementById('xattr-cmd');
+      if (!btn || !cmd) return;
+      btn.addEventListener('click', async () => {
+        const text = cmd.textContent.trim();
+        try {
+          await navigator.clipboard.writeText(text);
+          const old = btn.textContent;
+          btn.textContent = 'Copié !';
+          setTimeout(() => { btn.textContent = old; }, 1500);
+        } catch (e) {
+          const range = document.createRange();
+          range.selectNodeContents(cmd);
+          const sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+      });
+    })();
 
     main();
   </script>
