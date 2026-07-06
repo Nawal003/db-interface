@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     if (typeof filePath !== "string" || !filePath.trim()) {
       return Response.json({ error: "Chemin requis" }, { status: 400 });
     }
-    const datasets = importSource(filePath);
+    const datasets = await importSource(filePath);
     // `dataset` (first table) drives selection; `datasets` reports all created.
     return Response.json({ dataset: datasets[0], datasets }, { status: 201 });
   } catch (e) {

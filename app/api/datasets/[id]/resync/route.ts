@@ -9,7 +9,7 @@ export async function POST(
 ) {
   const { id } = await params;
   try {
-    const dataset = resyncDataset(id);
+    const dataset = await resyncDataset(id);
     return Response.json({ dataset });
   } catch (e) {
     return Response.json({ error: (e as Error).message }, { status: 400 });

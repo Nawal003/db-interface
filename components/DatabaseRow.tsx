@@ -1,13 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import { Database, MoreHorizontal, Trash2 } from "lucide-react";
+import {
+  ChevronRight,
+  Database,
+  MoreHorizontal,
+  Table,
+  Trash2,
+} from "lucide-react";
 import type { Dataset } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
   SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 import {
   DropdownMenu,
@@ -43,6 +52,7 @@ export function DatabaseRow({
   onSelect,
   onDeleted,
 }: Props) {
+  const [open, setOpen] = useState(true);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,10 +60,6 @@ export function DatabaseRow({
   const isActive = tables.some((t) => t.id === selectedId);
   const modified = tables.some((t) => t.status === "modified");
   const plural = tables.length > 1 ? "s" : "";
-
-  function openFirst() {
-    if (!isActive) onSelect(tables[0]!.id);
-  }
 
   async function confirmDelete() {
     setBusy(true);
@@ -75,32 +81,35 @@ export function DatabaseRow({
   return (
     <SidebarMenuItem>
       <SidebarMenuButton
-        isActive={isActive}
-        onClick={openFirst}
+        onClick={() => setOpen((o) => !o)}
+        isActive={isActive && !open}
         className={cn(
-          "relative h-auto cursor-pointer items-start overflow-hidden rounded-lg border py-2.5 pr-9 pl-3",
-          isActive
+          "relative cursor-pointer gap-2 overflow-hidden rounded-lg border py-2 pr-9 pl-2.5",
+          isActive && !open
             ? "border-border"
             : "border-border/60 bg-card/30 hover:bg-muted/50",
         )}
       >
-        {isActive && (
-          <span className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-secondary" />
+        {isActive && !open && (
+          <span className="absolute inset-y-1.5 left-0 w-1 rounded-r-full bg-secondary" />
         )}
-        <Database className="mt-0.5 size-4 shrink-0 text-secondary" />
-        <span className="flex min-w-0 flex-col">
-          <span className="truncate text-sm font-medium text-foreground">
-            {name}
-          </span>
-          <span
-            className={cn(
-              "truncate font-mono text-xs",
-              modified ? "text-amber-500" : "text-muted-foreground",
-            )}
-          >
-            {tables.length} table{plural}
-            {modified ? " · modifié" : ""}
-          </span>
+        <ChevronRight
+          className={cn(
+            "size-4 shrink-0 text-muted-foreground transition-transform",
+            open && "rotate-90",
+          )}
+        />
+        <Database className="size-4 shrink-0 text-secondary" />
+        <span className="flex-1 truncate text-sm font-medium text-foreground">
+          {name}
+        </span>
+        <span
+          className={cn(
+            "shrink-0 font-mono text-[11px]",
+            modified ? "text-amber-500" : "text-muted-foreground",
+          )}
+        >
+          {tables.length} table{plural}
         </span>
       </SidebarMenuButton>
 
@@ -126,6 +135,32 @@ export function DatabaseRow({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {open && (
+        <SidebarMenuSub className="mr-0 gap-0.5 pr-0">
+          {tables.map((t) => (
+            <SidebarMenuSubItem key={t.id}>
+              <SidebarMenuSubButton
+                isActive={t.id === selectedId}
+                onClick={() => onSelect(t.id)}
+                className="cursor-pointer"
+              >
+                <Table className="size-3.5 shrink-0 text-muted-foreground" />
+                <span className="truncate">{t.name}</span>
+                {t.status === "modified" && (
+                  <span
+                    className="ml-auto text-amber-500"
+                    title="Modifié"
+                    aria-hidden
+                  >
+                    ●
+                  </span>
+                )}
+              </SidebarMenuSubButton>
+            </SidebarMenuSubItem>
+          ))}
+        </SidebarMenuSub>
+      )}
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>

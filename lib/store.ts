@@ -12,6 +12,10 @@ import {
   readSqlTables,
 } from "./parse";
 import { FILES_DIR, ensureDataDirs } from "./paths";
+import {
+  streamDelimitedIntoTable,
+  streamTextIntoTable,
+} from "./import-stream";
 import type { Column, Dataset, ParsedTable, SourceFormat } from "./types";
 
 interface DatasetRow {
@@ -167,20 +171,38 @@ function insertDataset(d: InsertInput): void {
     );
 }
 
+/**
+ * Fill a fresh table from a single-table file. Row-based formats (CSV/TSV/text)
+ * stream in with constant memory; JSON/XLSX are parsed in-memory.
+ */
+async function fillTableFromFile(
+  tableName: string,
+  abs: string,
+  format: SourceFormat,
+): Promise<{ columns: Column[]; rowCount: number }> {
+  if (format === "csv" || format === "tsv") {
+    return streamDelimitedIntoTable(tableName, abs, format);
+  }
+  if (format === "text") {
+    return streamTextIntoTable(tableName, abs);
+  }
+  const parsed = parseFile(abs, format);
+  return { columns: populateTable(tableName, parsed), rowCount: parsed.rows.length };
+}
+
 /** Import a single-table file (CSV/TSV/JSON/XLSX/text): parse, copy, store. */
-function importSingleFile(
+async function importSingleFile(
   abs: string,
   stat: fs.Stats,
   format: SourceFormat,
-): Dataset {
+): Promise<Dataset> {
   const existing = getDatasetBySource(abs, null);
   if (existing) return existing;
 
-  const parsed = parseFile(abs, format);
   const id = safeId();
   const rawCopyPath = path.join(FILES_DIR, id + path.extname(abs));
   fs.copyFileSync(abs, rawCopyPath);
-  const columns = populateTable(id, parsed);
+  const { columns, rowCount } = await fillTableFromFile(id, abs, format);
 
   insertDataset({
     id,
@@ -191,7 +213,7 @@ function importSingleFile(
     stat,
     rawCopyPath,
     columns,
-    rowCount: parsed.rows.length,
+    rowCount,
   });
   return getDataset(id)!;
 }
@@ -229,7 +251,7 @@ function importTableDataset(
  * dataset; a SQLite database yields one dataset per table. Already-imported
  * sources return their existing datasets.
  */
-export function importSource(sourcePath: string): Dataset[] {
+export async function importSource(sourcePath: string): Promise<Dataset[]> {
   const abs = path.resolve(sourcePath);
   const stat = fs.statSync(abs); // throws if missing
   if (!stat.isFile()) throw new Error("Ce n’est pas un fichier : " + abs);
@@ -262,23 +284,34 @@ export function importSource(sourcePath: string): Dataset[] {
     );
   }
 
-  return [importSingleFile(abs, stat, format)];
+  return [await importSingleFile(abs, stat, format)];
 }
 
 /** Re-read the source file and replace the stored copy + table + metadata. */
-export function resyncDataset(id: string): Dataset {
+export async function resyncDataset(id: string): Promise<Dataset> {
   const ds = getDataset(id);
   if (!ds) throw new Error("Jeu de données introuvable");
   const stat = fs.statSync(ds.sourcePath); // throws if source now missing
 
-  const parsed =
-    ds.sourceTable && ds.format === "sql"
-      ? parseSqlTable(ds.sourcePath, ds.sourceTable)
-      : ds.sourceTable
-        ? parseSqliteTable(ds.sourcePath, ds.sourceTable)
-        : parseFile(ds.sourcePath, ds.format);
+  let columns: Column[];
+  let rowCount: number;
+  if (ds.sourceTable) {
+    // A SQLite/SQL table source: re-read that one table (in-memory).
+    const parsed =
+      ds.format === "sql"
+        ? parseSqlTable(ds.sourcePath, ds.sourceTable)
+        : parseSqliteTable(ds.sourcePath, ds.sourceTable);
+    columns = populateTable(ds.tableName, parsed);
+    rowCount = parsed.rows.length;
+  } else {
+    // A plain file: stream CSV/TSV/text, parse JSON/XLSX in-memory.
+    ({ columns, rowCount } = await fillTableFromFile(
+      ds.tableName,
+      ds.sourcePath,
+      ds.format,
+    ));
+  }
   if (ds.rawCopyPath) fs.copyFileSync(ds.sourcePath, ds.rawCopyPath);
-  const columns = populateTable(ds.tableName, parsed);
   const now = Date.now();
 
   getDb()
@@ -290,7 +323,7 @@ export function resyncDataset(id: string): Dataset {
       Math.floor(stat.mtimeMs),
       stat.size,
       JSON.stringify(columns),
-      parsed.rows.length,
+      rowCount,
       now,
       id,
     );
