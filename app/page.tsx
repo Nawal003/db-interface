@@ -81,8 +81,16 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ path: filePath }),
       });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body?.error ?? "Échec de l’import");
+      const text = await res.text();
+      let body: { dataset?: Dataset; error?: string } = {};
+      try {
+        body = text ? JSON.parse(text) : {};
+      } catch {
+        throw new Error(
+          res.ok ? "Réponse serveur invalide" : `Erreur serveur (${res.status})`,
+        );
+      }
+      if (!res.ok) throw new Error(body.error ?? "Échec de l’import");
       handleImported(body.dataset as Dataset);
     } catch (e) {
       setImportError((e as Error).message);
