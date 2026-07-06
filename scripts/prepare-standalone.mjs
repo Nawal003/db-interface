@@ -5,12 +5,15 @@
 import {
   cpSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   readdirSync,
   readFileSync,
+  readlinkSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 
@@ -98,5 +101,43 @@ for (const [hashed, pkg] of aliases) {
   writeFileSync(join(dir, "index.js"), `module.exports = require(${JSON.stringify(pkg)});\n`);
   console.log(`Aliased external ${hashed} -> ${pkg}`);
 }
+
+// 4) Remove symlinks that point outside the standalone or are broken. Next emits
+//    an absolute-path symlink for the external module (…/.next/node_modules/
+//    better-sqlite3-<hash> → build-machine path) that is dead on the user's
+//    machine AND breaks macOS code signing (`codesign --strict` → invalid
+//    signature → Apple Silicon refuses to launch). The alias above already
+//    resolves the module, so these links are safe to drop.
+function pruneBadSymlinks(dir) {
+  let removed = 0;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isSymbolicLink()) {
+      const target = readlinkSync(full);
+      const resolved = isAbsolute(target)
+        ? target
+        : resolve(dirname(full), target);
+      // Absolute links leak the build path + die on other machines; links that
+      // escape the standalone or are broken are equally unsafe for signing.
+      if (
+        isAbsolute(target) ||
+        !resolved.startsWith(standalone) ||
+        !existsSync(resolved)
+      ) {
+        rmSync(full, { force: true });
+        removed++;
+      }
+    } else if (entry.isDirectory()) {
+      try {
+        if (lstatSync(full).isDirectory()) removed += pruneBadSymlinks(full);
+      } catch {
+        // ignore
+      }
+    }
+  }
+  return removed;
+}
+const pruned = pruneBadSymlinks(standalone);
+if (pruned > 0) console.log(`Pruned ${pruned} external/broken symlink(s).`);
 
 console.log("prepare-standalone: done.");
