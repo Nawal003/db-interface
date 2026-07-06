@@ -1,18 +1,18 @@
 {
   "name": "db-admin",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": true,
   "main": "electron/main.cjs",
   "author": "nawalelk",
   "description": "DB Interface — import, browse and export local data files.",
   "scripts": {
     "dev": "next dev",
-    "build": "next build --webpack",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "electron": "electron .",
     "electron:dev": "concurrently -k -n NEXT,ELECTRON -c blue,magenta \"next dev\" \"wait-on http://localhost:3000 && electron .\"",
-    "electron:build": "next build --webpack && node scripts/prepare-standalone.mjs && electron-builder"
+    "electron:build": "next build && node scripts/prepare-standalone.mjs && electron-builder"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
