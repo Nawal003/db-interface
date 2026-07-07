@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import useSWR from "swr";
-import { Database } from "lucide-react";
+import { Database, HelpCircle } from "lucide-react";
 import type { Dataset } from "@/lib/types";
 import { fetcher } from "@/lib/fetcher";
 import { getDesktop, type UpdateInfo } from "@/lib/desktop";
@@ -16,6 +16,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import DatasetView from "@/components/DatasetView";
 import FileBrowser from "@/components/FileBrowser";
 import MergeDialog from "@/components/MergeDialog";
+import TutorialDialog from "@/components/TutorialDialog";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 interface DatasetsResponse {
@@ -29,6 +30,20 @@ export default function Home() {
   const [showMerge, setShowMerge] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [update, setUpdate] = useState<UpdateInfo | null>(null);
+  const [showTutorial, setShowTutorial] = useState(false);
+
+  // First launch: open the built-in tutorial once (async read keeps SSR happy).
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (!localStorage.getItem("dbi-tutorial-seen")) setShowTutorial(true);
+    }, 0);
+    return () => clearTimeout(t);
+  }, []);
+
+  function closeTutorial(open: boolean) {
+    setShowTutorial(open);
+    if (!open) localStorage.setItem("dbi-tutorial-seen", "1");
+  }
 
   // On launch (desktop only), check GitHub for a newer release.
   useEffect(() => {
@@ -119,7 +134,17 @@ export default function Home() {
       <SidebarInset className="h-svh overflow-hidden">
         <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger />
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-1.5">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => setShowTutorial(true)}
+              title="Tutoriel"
+              className="cursor-pointer text-muted-foreground hover:text-foreground"
+            >
+              <HelpCircle />
+              <span className="sr-only">Ouvrir le tutoriel</span>
+            </Button>
             <ThemeToggle />
           </div>
         </header>
@@ -194,6 +219,8 @@ export default function Home() {
         datasets={datasets}
         onDone={handleImported}
       />
+
+      <TutorialDialog open={showTutorial} onOpenChange={closeTutorial} />
     </SidebarProvider>
   );
 }
