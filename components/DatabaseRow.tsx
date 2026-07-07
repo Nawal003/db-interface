@@ -116,7 +116,7 @@ export function DatabaseRow({
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
-            <SidebarMenuAction className="top-1/2 -translate-y-1/2 cursor-pointer peer-data-[size=default]/menu-button:top-1/2">
+            <SidebarMenuAction className="top-2 cursor-pointer peer-data-[size=default]/menu-button:top-2">
               <MoreHorizontal />
               <span className="sr-only">Options de la base</span>
             </SidebarMenuAction>

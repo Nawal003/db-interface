@@ -53,11 +53,14 @@ function buildSidebarItems(datasets: Dataset[]): SidebarItem[] {
       });
     }
   }
-  for (const it of items) {
-    if (it.kind === "db")
-      it.tables.sort((a, b) => a.name.localeCompare(b.name));
-  }
-  return items;
+  const flattened = items.map((it): SidebarItem => {
+    if (it.kind !== "db") return it;
+    // A database/script with a single table reads better as a plain file card.
+    if (it.tables.length === 1) return { kind: "file", dataset: it.tables[0] };
+    it.tables.sort((a, b) => a.name.localeCompare(b.name));
+    return it;
+  });
+  return flattened;
 }
 
 export function AppSidebar({

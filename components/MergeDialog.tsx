@@ -36,6 +36,33 @@ function label(ds: Dataset): string {
   return ds.sourceTable ? `${ds.name}  ·  ${ds.columns.length} col.` : ds.name;
 }
 
+/** "Select all" header row for a checkbox list (checked = everything selected). */
+function SelectAllRow({
+  count,
+  total,
+  onToggle,
+}: {
+  count: number;
+  total: number;
+  onToggle: (all: boolean) => void;
+}) {
+  const all = total > 0 && count === total;
+  return (
+    <label className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm font-medium hover:bg-muted">
+      <input
+        type="checkbox"
+        className="size-4 accent-secondary"
+        checked={all}
+        onChange={() => onToggle(!all)}
+      />
+      <span>Tout sélectionner</span>
+      <span className="ml-auto text-xs font-normal text-muted-foreground">
+        {count}/{total}
+      </span>
+    </label>
+  );
+}
+
 export default function MergeDialog({
   open,
   onOpenChange,
@@ -157,6 +184,14 @@ export default function MergeDialog({
             <div className="space-y-1.5">
               <span className="text-sm font-medium">Jeux à empiler (2+)</span>
               <div className="max-h-56 space-y-1 overflow-y-auto rounded-md border p-1">
+                <SelectAllRow
+                  count={unionIds.length}
+                  total={datasets.length}
+                  onToggle={(all) =>
+                    setUnionIds(all ? datasets.map((d) => d.id) : [])
+                  }
+                />
+                <div className="border-b" />
                 {datasets.map((d) => (
                   <label
                     key={d.id}
@@ -237,6 +272,16 @@ export default function MergeDialog({
                 <div className="space-y-1.5">
                   <span className="text-sm font-medium">Colonnes à comparer</span>
                   <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border p-1">
+                    <SelectAllRow
+                      count={dedupeKeys.length}
+                      total={dedupeDs.columns.length}
+                      onToggle={(all) =>
+                        setDedupeKeys(
+                          all ? dedupeDs.columns.map((c) => c.key) : [],
+                        )
+                      }
+                    />
+                    <div className="border-b" />
                     {dedupeDs.columns.map((c) => (
                       <label key={c.key} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-muted">
                         <input type="checkbox" className="size-4 accent-secondary" checked={dedupeKeys.includes(c.key)} onChange={() => setDedupeKeys((a) => toggle(a, c.key))} />
