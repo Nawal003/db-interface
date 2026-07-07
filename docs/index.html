@@ -223,10 +223,14 @@
       linux: '<svg viewBox="0 0 448 512"><path d="M220.8 123.3c1 .5 1.8 1.7 3 1.7 1.1 0 2.8-.4 2.9-1.5 .2-1.4-1.9-2.3-3.2-2.9-1.7-.7-3.9-1-5.5-.1-.4.2-.8.7-.6 1.1.3 1.3 2.3 1 3.4 1.7zm-21.9 1.7c1.2 0 2-1.2 3-1.7 1.1-.7 3.1-.4 3.5-1.6 .2-.4-.2-.9-.6-1.1-1.6-.9-3.8-.6-5.5.1-1.3.6-3.4 1.5-3.2 2.9 .1 1 1.8 1.5 2.8 1.4zM420 403.8c-3.6-4-5.3-11.6-7.2-19.7-1.8-8.1-3.9-16.8-10.5-22.4-1.3-1.1-2.6-2.1-4-2.9-1.3-.8-2.7-1.5-4.1-2 9.2-27.3 5.6-54.5-3.7-79.1-11.4-30.1-31.3-56.4-46.5-74.4-17.1-21.5-33.7-41.9-33.4-72C311.1 85.4 315.7.1 234.8 0 132.4-.2 158.8 103.6 158 132c-1.6 30.5-27.5 82.6-42.5 100.6C87.5 264.3 82.5 306.9 78 350.5c-2.3 22.7-5.3 41.1-12.3 53.4-4.9 8.6-11.7 15.5-19.5 20.2-8.4 5-18.2 7.9-28.2 8.4-.8.4-1.6.9-2.4 1.4-2.6 1.7-4.3 4.6-4.3 7.8 0 3.6 1.6 7.3 4.3 9.7 5.9 5.3 15.5 6.7 23.4 8.1 6.3 1.1 11.9 2.1 15.4 4.3 3.5 2.2 5.1 5.1 5.1 9.1 0 4.5-2 7.1-4.6 8.9l1.4.7c15.1 7.4 33.4 6.3 51.1 4.1 4.4-.5 8.9-1.1 13.2-1.5 11-1 21.4-1.6 30.3 1.9 9.9 3.9 18.4 12.5 25.5 24.1 1.3 2.1 2.5 4.3 3.7 6.4 4.4 8.2 8.4 15.7 15.5 20.1 8 5 19.6 6.5 38.3 3.8 15.9-2.3 27.3-8.6 34.4-18.2 6.5-8.8 9.3-19.8 10.4-31 .9-9.3 1.6-18.4 3.4-26.6 1.8-8.2 5-15.2 10.8-19.6z"/></svg>',
     };
 
-    // Ordered categories. `os` groups them for OS detection; `arch` disambiguates macOS.
+    // Ordered categories. `os` groups them for OS detection; `arch` disambiguates
+    // macOS. Order matters: the first match per arch becomes the primary button,
+    // so the .dmg entries must precede the portable .zip ones.
     const CATS = [
       { key: 'mac-arm', os: 'mac', arch: 'arm64', label: 'macOS · Apple Silicon', icon: 'mac',   test: n => /-arm64\.dmg$/i.test(n) },
       { key: 'mac-x64', os: 'mac', arch: 'x64',   label: 'macOS · Intel',         icon: 'mac',   test: n => /\.dmg$/i.test(n) && !/-arm64\.dmg$/i.test(n) },
+      { key: 'mac-arm-zip', os: 'mac', arch: 'arm64', label: 'Silicon · portable .zip', icon: 'mac', test: n => /-arm64-mac\.zip$/i.test(n) },
+      { key: 'mac-x64-zip', os: 'mac', arch: 'x64',   label: 'Intel · portable .zip',   icon: 'mac', test: n => /-mac\.zip$/i.test(n) && !/-arm64-mac\.zip$/i.test(n) },
       { key: 'win',      os: 'win',   label: 'Windows',          icon: 'win',   test: n => /\.exe$/i.test(n) },
       { key: 'appimage', os: 'linux', label: 'Linux · AppImage', icon: 'linux', test: n => /\.appimage$/i.test(n) },
       { key: 'deb',      os: 'linux', label: 'Linux · .deb',     icon: 'linux', test: n => /\.deb$/i.test(n) },
@@ -312,7 +316,9 @@
 
       const isMac = detectOS() === 'mac' || found.some(x => x.cat.os === 'mac');
       const note = document.getElementById('note');
-      note.innerHTML = isMac ? "Mac d'avant 2020 = <b>Intel</b>, sinon <b>Apple Silicon</b>." : "";
+      note.innerHTML = isMac
+        ? "Mac d'avant 2020 = <b>Intel</b>, sinon <b>Apple Silicon</b>.<br><b>.zip</b> = version portable : dézipper, double-cliquer — aucune installation."
+        : "";
 
       // Show the "first open on Mac" guide (unsigned app) to Mac visitors.
       const guide = document.getElementById('macguide');
