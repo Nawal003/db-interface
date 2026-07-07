@@ -132,6 +132,13 @@
     .osbtn:hover { background: var(--btn-hover); transform: translateY(-1px); }
     .osbtn svg { width: 18px; height: 18px; fill: currentColor; opacity: .9; }
     .osbtn .meta { color: var(--muted2); font-weight: 500; font-size: .78rem; }
+    .osbtn.sel { border-color: var(--accent); background: rgba(249,115,22,0.12); }
+    .osbtn.sel .meta { color: var(--accent2); }
+
+    /* per-selection explanation */
+    .explain { margin-top: 14px; text-align: left; font-size: .82rem; color: var(--muted); line-height: 1.6; background: var(--btn-face); border: 1px solid var(--btn-border); border-radius: 12px; padding: 11px 13px; }
+    .explain b { color: var(--text); }
+    .explain code { font-family: 'IBM Plex Mono', monospace; font-size: .73rem; color: var(--text); background: var(--bg); padding: 1px 6px; border-radius: 5px; }
 
     .note { margin-top: 16px; font-size: .78rem; color: var(--muted2); line-height: 1.5; }
     .note code { font-family: 'IBM Plex Mono', monospace; font-size: .74rem; background: var(--btn-face); padding: 2px 6px; border-radius: 6px; }
@@ -179,8 +186,9 @@
         <p class="state">Recherche de la dernière version…</p>
       </div>
       <div id="content" class="hidden">
-        <a class="primary" id="primary" href="#" target="_blank" rel="noopener"></a>
         <div class="others" id="others"></div>
+        <div class="explain" id="explain"></div>
+        <a class="primary" id="primary" href="#" target="_blank" rel="noopener" style="margin-top:14px"></a>
         <p class="note" id="note"></p>
         <details class="macguide hidden" id="macguide">
           <summary>🍎 Première ouverture sur Mac (app non signée)</summary>
@@ -236,6 +244,19 @@
       { key: 'deb',      os: 'linux', label: 'Linux · .deb',     icon: 'linux', test: n => /\.deb$/i.test(n) },
     ];
 
+    // Per-version explanation shown when the user selects an option.
+    const T_DMG = "💿 <b>Installeur macOS</b> : ouvre le fichier puis glisse <b>DB Interface</b> dans <b>Applications</b>. App non signée : au 1ᵉʳ lancement, suis l'encart 🍎 ci-dessous.";
+    const T_MACZIP = "🗜️ <b>Version portable macOS</b> : dézippe puis double-clique <b>DB Interface.app</b> — aucune installation, lançable depuis n'importe quel dossier (ou une clé USB). Même déblocage 🍎 au 1ᵉʳ lancement (adapte le chemin dans la commande).";
+    const EXPLAIN = {
+      'mac-arm': T_DMG,
+      'mac-x64': T_DMG,
+      'mac-arm-zip': T_MACZIP,
+      'mac-x64-zip': T_MACZIP,
+      'win': "🪟 <b>Installeur Windows</b> : lance le <code>.exe</code> et suis l'assistant. Si SmartScreen s'affiche : « Informations complémentaires » → « Exécuter quand même ».",
+      'appimage': "🐧 <b>Portable Linux</b> (toutes distributions) : rends le fichier exécutable puis lance-le — <code>chmod +x DB*.AppImage && ./DB*.AppImage</code>. Sur certaines distros récentes : <code>sudo apt install libfuse2</code>.",
+      'deb': "🐧 <b>Paquet Debian / Ubuntu / Mint</b> : double-clique le fichier ou <code>sudo dpkg -i db-admin_*.deb</code>. L'app apparaît ensuite dans le menu des applications.",
+    };
+
     function detectOS() {
       const p = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '';
       const ua = navigator.userAgent || '';
@@ -286,48 +307,55 @@
 
       if (!found.length) return renderEmpty("Version publiée, mais aucun installeur disponible.");
 
-      const osNames = { mac: 'macOS', win: 'Windows', linux: 'Linux' };
       const myOS = detectOS();
 
-      // Primary = best match for the visitor. For macOS, try to detect the CPU arch.
-      let primary;
+      // Default selection = best match for the visitor (dmg preferred over zip).
+      let def;
       if (myOS === 'mac') {
         const arch = macArch() || 'arm64'; // default to Apple Silicon (majority) when unknown
-        primary = found.find(x => x.cat.arch === arch) || found.find(x => x.cat.os === 'mac');
+        def =
+          found.find(x => x.cat.arch === arch && !x.cat.key.endsWith('zip')) ||
+          found.find(x => x.cat.os === 'mac');
       } else {
-        primary = found.find(x => x.cat.os === myOS);
+        def = found.find(x => x.cat.os === myOS);
       }
-      if (!primary) primary = found[0];
+      if (!def) def = found[0];
 
-      const pBtn = document.getElementById('primary');
-      pBtn.href = primary.asset.browser_download_url;
-      pBtn.innerHTML = ICONS[primary.cat.icon] +
-        `<span class="lbl"><span>Télécharger pour ${osNames[primary.cat.os]}</span>` +
-        `<span class="sub">${primary.cat.label} · ${fmtSize(primary.asset.size)}</span></span>`;
-
-      // Others = everything except the primary asset.
-      const others = found.filter(x => x !== primary);
+      // All versions are selectable buttons; first click selects + explains,
+      // the big "Télécharger" button below performs the actual download.
       const box = document.getElementById('others');
-      box.classList.toggle('solo', others.length === 1);
-      box.innerHTML = others.map(x =>
-        `<a class="osbtn" href="${x.asset.browser_download_url}">${ICONS[x.cat.icon]}` +
-        `<span>${x.cat.label}</span><span class="meta">${fmtSize(x.asset.size)}</span></a>`
+      box.classList.toggle('solo', found.length === 1);
+      box.innerHTML = found.map(x =>
+        `<button type="button" class="osbtn" data-key="${x.cat.key}">${ICONS[x.cat.icon]}` +
+        `<span>${x.cat.label}</span><span class="meta">${fmtSize(x.asset.size)}</span></button>`
       ).join('');
 
-      const isMac = detectOS() === 'mac' || found.some(x => x.cat.os === 'mac');
+      const byKey = new Map(found.map(x => [x.cat.key, x]));
+      function select(key) {
+        const x = byKey.get(key);
+        if (!x) return;
+        box.querySelectorAll('.osbtn').forEach(b => b.classList.toggle('sel', b.dataset.key === key));
+        const pBtn = document.getElementById('primary');
+        pBtn.href = x.asset.browser_download_url;
+        pBtn.innerHTML = ICONS[x.cat.icon] +
+          `<span class="lbl"><span>Télécharger</span>` +
+          `<span class="sub">${x.cat.label} · ${fmtSize(x.asset.size)}</span></span>`;
+        document.getElementById('explain').innerHTML = EXPLAIN[x.cat.key] || '';
+        // The Gatekeeper guide only matters for macOS downloads.
+        document.getElementById('macguide').classList.toggle('hidden', x.cat.os !== 'mac');
+      }
+      box.addEventListener('click', (e) => {
+        const b = e.target.closest('.osbtn');
+        if (b) select(b.dataset.key);
+      });
+
       const note = document.getElementById('note');
-      note.innerHTML = isMac
-        ? "Mac d'avant 2020 = <b>Intel</b>, sinon <b>Apple Silicon</b>.<br><b>.zip</b> = version portable : dézipper, double-cliquer — aucune installation."
+      note.innerHTML = found.some(x => x.cat.os === 'mac')
+        ? "Mac d'avant 2020 = <b>Intel</b>, sinon <b>Apple Silicon</b>."
         : "";
 
-      // Show the "first open on Mac" guide (unsigned app) to Mac visitors.
-      const guide = document.getElementById('macguide');
-      if (detectOS() === 'mac') {
-        guide.classList.remove('hidden');
-        guide.open = true;
-      } else {
-        guide.classList.add('hidden');
-      }
+      select(def.cat.key);
+      if (myOS === 'mac') document.getElementById('macguide').open = true;
 
       hide('loading'); show('content');
     }
