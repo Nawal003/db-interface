@@ -191,21 +191,22 @@
         <a class="primary" id="primary" href="#" target="_blank" rel="noopener" style="margin-top:14px"></a>
         <p class="note" id="note"></p>
         <details class="macguide hidden" id="macguide">
-          <summary>🍎 Première ouverture sur Mac (app non signée)</summary>
+          <summary>🍎 Ouverture sur Mac (app non signée) — obligatoire à chaque mise à jour</summary>
           <div class="macguide-body">
-            <p>macOS affiche une alerte au 1ᵉʳ lancement car l'app n'est pas signée (c'est sans danger). Deux façons de l'ouvrir :</p>
-            <p><b>Option A — Terminal</b> (le plus rapide) :</p>
+            <p>Au lancement, macOS peut afficher « développeur non identifié » ou même <b>« l'application est endommagée »</b> — c'est le même blocage (app non signée) : le fichier est <b>sain</b>. Débloque-la ainsi :</p>
+            <p><b>Option A — Terminal</b> (la plus fiable, surtout sur Apple Silicon) :</p>
             <div class="cmd">
               <code id="xattr-cmd">xattr -dr com.apple.quarantine "/Applications/DB Interface.app"</code>
               <button type="button" id="copy-cmd">Copier</button>
             </div>
-            <p class="small">Colle-la dans Terminal, puis lance l'app normalement.</p>
-            <p><b>Option B — sans Terminal</b> :</p>
+            <p class="small">Colle-la dans Terminal après avoir mis l'app dans Applications, puis lance-la normalement. Pour un .zip lancé d'ailleurs, adapte le chemin.</p>
+            <p><b>Option B — sans Terminal</b> (peut ne pas être proposée sur les macOS récents) :</p>
             <ol>
               <li>Double-clique l'app → sur l'alerte, clique <b>Terminé</b>.</li>
               <li>Ouvre <b>Réglages Système → Confidentialité et sécurité</b>.</li>
               <li>Section <b>Sécurité</b> → <b>Ouvrir quand même</b> → confirme.</li>
             </ol>
+            <p>⚠️ <b>À refaire après chaque mise à jour</b> : tout nouveau téléchargement remet le blocage.</p>
           </div>
         </details>
       </div>
