@@ -16,6 +16,8 @@ export function detectFormat(filePath: string): SourceFormat | null {
     case ".tsv":
       return "tsv";
     case ".json":
+    case ".ndjson":
+    case ".jsonl":
       return "json";
     case ".xlsx":
     case ".xls":
@@ -307,8 +309,44 @@ function parseDelimited(format: "csv" | "tsv", content: string): ParsedTable {
 }
 
 function parseJson(content: string): ParsedTable {
-  const parsed = JSON.parse(content);
+  const text = content.replace(/^\uFEFF/, ""); // strip BOM (breaks JSON.parse)
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch (e) {
+    // Not strict JSON — try NDJSON / JSON Lines (one JSON value per line),
+    // a very common export format (APIs, logs, Mockaroo…).
+    const nd = tryParseNdjson(text);
+    if (nd) return nd;
+    throw new Error(
+      "Fichier JSON invalide — le JSON strict exige des guillemets doubles " +
+        "autour des clés et des textes, et interdit les virgules finales. " +
+        "Les fichiers « un objet JSON par ligne » (NDJSON) sont aussi acceptés. " +
+        `Détail : ${(e as Error).message}`,
+    );
+  }
+  return jsonToTable(parsed);
+}
 
+/** Parse "one JSON value per line" content; null if any line isn't valid JSON. */
+function tryParseNdjson(text: string): ParsedTable | null {
+  const lines = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l !== "");
+  if (lines.length < 2) return null; // a single line would be plain JSON
+  const values: unknown[] = [];
+  for (const line of lines) {
+    try {
+      values.push(JSON.parse(line));
+    } catch {
+      return null;
+    }
+  }
+  return jsonToTable(values);
+}
+
+function jsonToTable(parsed: unknown): ParsedTable {
   // Array of objects -> tabular (union of keys in first-seen order).
   if (Array.isArray(parsed)) {
     if (parsed.length === 0) return { format: "json", columns: [], types: [], rows: [] };

@@ -34,7 +34,7 @@ let serverProc = null;
 // grant read access to the picked file (avoids the in-app browser hitting
 // filesystem permissions, e.g. macOS Desktop/Documents/Downloads protection).
 const IMPORT_EXTENSIONS = [
-  "csv", "tsv", "json", "xlsx", "txt", "log", "md",
+  "csv", "tsv", "json", "ndjson", "jsonl", "xlsx", "txt", "log", "md",
   "db", "sqlite", "sqlite3", "sql",
 ];
 ipcMain.handle("dialog:pickImportFile", async (event) => {
