@@ -346,7 +346,58 @@ function tryParseNdjson(text: string): ParsedTable | null {
   return jsonToTable(values);
 }
 
-function jsonToTable(parsed: unknown): ParsedTable {
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return v !== null && typeof v === "object" && !Array.isArray(v);
+}
+
+/**
+ * Unwrap common JSON "envelopes" so the real records become the table rows:
+ * - `{"accounts": [ … ]}` (single wrapper object whose lone array of objects
+ *   is the payload — e.g. API exports with metadata alongside)
+ * - NDJSON where every line is `{"accounts": [ … ]}` or `{"user": { … }}`
+ *   with the same single key → concat/collect the payloads
+ * - array of arrays of objects → flatten one level
+ */
+function unwrapJson(value: unknown): unknown {
+  if (isPlainObject(value)) {
+    const arrayProps = Object.values(value).filter(
+      (v) => Array.isArray(v) && v.length > 0 && v.every(isPlainObject),
+    );
+    if (arrayProps.length === 1) return arrayProps[0];
+    return value;
+  }
+  if (Array.isArray(value) && value.length > 0) {
+    // Every element is a same-single-key wrapper: {"accounts":[…]} per line.
+    if (value.every(isPlainObject)) {
+      const first = Object.keys(value[0] as object);
+      if (first.length === 1) {
+        const k = first[0];
+        const objs = value as Record<string, unknown>[];
+        if (objs.every((o) => Object.keys(o).length === 1 && k in o)) {
+          if (objs.every((o) => Array.isArray(o[k]) && (o[k] as unknown[]).every(isPlainObject)))
+            return objs.flatMap((o) => o[k] as unknown[]);
+          if (objs.every((o) => isPlainObject(o[k])))
+            return objs.map((o) => o[k]);
+        }
+      }
+      return value;
+    }
+    // Array of arrays of objects -> flatten one level.
+    if (value.every((el) => Array.isArray(el) && el.every(isPlainObject)))
+      return (value as unknown[][]).flat();
+  }
+  return value;
+}
+
+function jsonToTable(input: unknown): ParsedTable {
+  // Peel wrappers until the shape stabilizes (bounded to avoid pathological input).
+  let parsed = input;
+  for (let i = 0; i < 3; i++) {
+    const u = unwrapJson(parsed);
+    if (u === parsed) break;
+    parsed = u;
+  }
+
   // Array of objects -> tabular (union of keys in first-seen order).
   if (Array.isArray(parsed)) {
     if (parsed.length === 0) return { format: "json", columns: [], types: [], rows: [] };
